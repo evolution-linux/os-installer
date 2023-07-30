@@ -219,21 +219,21 @@ done
 dialog --title "Username" --clear --inputbox "Enter display username." 0 0 2>/tmp/dpusername
 dpusername=$(cat /tmp/dpusername)
 while true; do
-  dialog --title "Password" --clear --insecure --passwordbox "Enter user password" 0 0 2>/tmp/userpasswd
+  dialog --title "Password" --clear --insecure --passwordbox "Enter user password" 0 0 2>/tmp/userpasswd 0 0
   userpasswd="$(cat /tmp/userpasswd)"
   passwd -R /mnt <<EOF
 $userpasswd
 $userpasswd
 EOF
   if [[ $? = 1 ]]; then
-    dialog --title "Illegal characters" --msgbox "You cannot have those characters in a password. Please enter a new one."
+    dialog --title "Illegal characters" --msgbox "You cannot have those characters in a password. Please enter a new one." 0 0
     continue
   else
     break
   fi
 done
 
-chroot /mnt chfn -f $dpusername $shusername
+chroot /mnt chfn -f "$dpusername" $shusername
 chroot /mnt usermod -a -G video $shusername
 
-dialog --title "Done!" --msgbox "Hello, and welcome to my minceraft tutorial"
+dialog --title "Done!" --msgbox "Hello, and welcome to my minceraft tutorial" 0 0
