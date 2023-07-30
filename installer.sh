@@ -7,54 +7,6 @@ else
   exit 1
 fi
 
-# Function to check if the username exists in the chrooted environment
-function check_username_existence() {
-    chroot_dir="/mnt"
-    username="$1"
-
-    if [ -z "$username" ]; then
-        echo "Error: Username cannot be empty."
-        exit 1
-    fi
-
-    if chroot "$chroot_dir" id "$username" &>/dev/null; then
-        echo "Error: Username '$username' already exists."
-        exit 1
-    fi
-}
-
-# Function to check for illegal characters in the username
-function check_illegal_characters_username() {
-    username="$1"
-    illegal_characters=": \t\n\r\b\0'\""
-
-    for char in $(echo -n "$username" | grep -o .); do
-        if [[ "$illegal_characters" == *"$char"* ]]; then
-            echo "Error: Username contains illegal character '$char'."
-            exit 1
-        fi
-    done
-}
-
-# Function to check for illegal characters in the password
-
-function check_illegal_characters() {
-    password="$1"
-    illegal_characters=": \t\n\r\b\0'\""
-
-    if [[ -z $password ]]; then
-        echo "Password cannot be empty"
-        exit 1
-    fi
-
-    for char in $(echo -n "$password" | grep -o .); do
-        if [[ "$illegal_characters" == *"$char"* ]]; then
-            echo "Error: Password contains illegal character '$char'."
-            exit 1
-        fi
-    done
-}
-
 if [[ -x /sys/firmware/efi ]]; then
   uefi=true
 else
@@ -205,9 +157,9 @@ else
 fi
 
 for f in sys proc dev; do
-  [ ! -d mnt/$f ] && mkdir mnt/$f
-  echo "Mounting /mnt/$f..." >$LOG
-  mount --rbind /$f mnt/$f >$LOG 2>&1
+  [ ! -d /mnt/$f ] && mkdir /mnt/$f
+  echo "Mounting /mnt/$f..."
+  mount --rbind /$f /mnt/$f
 done
 
 dialog --clear --title "Select install type" --menu "Which installation type would you like to you:" 0 0 0 "local" "Install without internet" "network" "Download from internet" 2>/tmp/installtype
@@ -240,7 +192,10 @@ chroot /mnt xbps-reconfigure -fa | dialog --title "Reconfiguring packages..." --
 while true; do
   dialog --title "Password" --clear --insecure --passwordbox "Enter Admin (root) password. For security reasons, you cannot log in as admin. Press enter to submit." 0 0 2>/tmp/rootpasswd
   rootpasswd="$(cat /tmp/rootpasswd)"
-  check_illegal_characters "$rootpasswd"
+  passwd -R /mnt <<EOF
+$rootpasswd
+$rootpasswd
+EOF
   if [[ $? = 1 ]]; then
     dialog --title "Illegal characters" --msgbox "You cannot have those characters in a password. Please enter a new one."
     continue
@@ -248,20 +203,16 @@ while true; do
     break
   fi
 done
+
 while true; do
   dialog --title "Username" --clear --inputbox "Enter shorthand username. This will be created as an super user (able to run as root)." 0 0 2>/tmp/usershort
   shusername="$(cat /tmp/usershort)"
-  check_illegal_characters_username "$shusername"
+  useradd -R /mnt -m $shusername
   if [[ $? = 1 ]]; then
     dialog --title "Illegal characters" --msgbox "You cannot have those characters in a shorthand username. Please enter a new one."
     continue
   else
-    check_username_existence "$shusername"
-    if [[ $? = 1 ]]; then
-      dialog --title "Already exists" --msgbox "You cannot have a username already used by the system. Please enter a new one."
-    else
-      break
-    fi
+    break
   fi
 done
 
@@ -270,7 +221,10 @@ dpusername=$(cat /tmp/dpusername)
 while true; do
   dialog --title "Password" --clear --insecure --passwordbox "Enter user password" 0 0 2>/tmp/userpasswd
   userpasswd="$(cat /tmp/userpasswd)"
-  check_illegal_characters "$userpasswd"
+  passwd -R /mnt <<EOF
+$userpasswd
+$userpasswd
+EOF
   if [[ $? = 1 ]]; then
     dialog --title "Illegal characters" --msgbox "You cannot have those characters in a password. Please enter a new one."
     continue
@@ -278,5 +232,8 @@ while true; do
     break
   fi
 done
+
+chroot /mnt chfn -f $dpusername $shusername
+chroot /mnt usermod -a -G video $shusername
 
 dialog --title "Done!" --msgbox "Hello, and welcome to my minceraft tutorial"
