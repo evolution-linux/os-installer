@@ -168,8 +168,10 @@ installtype=$(cat /tmp/installtype)
 if [ $uefi = true ]; then
     if [ $(uname -m) = "i686" ]; then
         _grub="grub-i386-efi"
+	arch=i386
     else
         _grub="grub-x86_64-efi"
+	grub=x86_64
     fi
 else
     _grub="grub"
@@ -188,6 +190,9 @@ fi
 
 xbps-reconfigure -r /mnt -f base-system
 chroot /mnt xbps-reconfigure -fa | dialog --title "Reconfiguring packages..." --programbox 24 80
+
+chroot /mnt grub-install --target=$arch --efi-directory=/hoot/efi --bootloader-id=void_grub --recheck
+chroot /mnt grub-mkconfig -o /boot/grub/grub.cfg
 
 while true; do
   dialog --title "Password" --clear --insecure --passwordbox "Enter Admin (root) password. For security reasons, you cannot log in as admin. Press enter to submit." 0 0 2>/tmp/rootpasswd
